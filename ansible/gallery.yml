@@ -8,7 +8,7 @@
     dropbox_user: "{{ ansible_user | default('raspi') }}"
     dropbox_group: "{{ dropbox_user }}"
     dropbox_home: "/home/{{ dropbox_user }}"
-    dropbox_image_display_duration: 20
+    dropbox_image_display_duration: 600
     dropbox_player_script: "{{ dropbox_home }}/.local/bin/start-digital-frame.sh"
     dropbox_mpv_hwdec: auto-safe
     dropbox_mpv_profile: fast
