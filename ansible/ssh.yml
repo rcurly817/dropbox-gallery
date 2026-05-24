@@ -1,9 +1,9 @@
 - hosts: raspi
   become: yes
   vars:
-    static_ip: 192.168.8.99/24
-    static_router: 192.168.8.1
-    static_dns: "1.1.1.1 8.8.8.8"
+    static_ip: 192.168.178.55/24
+    static_router: 192.168.178.1
+    static_dns: "192.168.178.1 1.1.1.1"
 
   tasks:
     - name: Install OpenSSH server
