@@ -3,7 +3,7 @@
   vars:
     static_ip: 192.168.178.55/24
     static_router: 192.168.178.1
-    static_dns: "192.168.178.1 1.1.1.1"
+    static_dns: "192.168.178.1,1.1.1.1"
 
   tasks:
     - name: Install OpenSSH server
