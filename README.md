@@ -2,8 +2,8 @@
 image gallery on raspberry pi
 
 ## setup
-* ssh raspi@192.168.8.19
-* git clone https://github.com/vinceTTs/dropbox-gallery.git
+* ssh raspi@192.168.178.55
+* git clone https://github.com/rcurly817/dropbox-gallery.git
 * bash dropbox-gallery/setup.sh
 
 ## ansible sudo error
@@ -36,8 +36,8 @@ Run the SSH setup playbook:
 
 * `ansible-playbook ansible/ssh.yml -i inventory-remote.ini -K`
 
-This installs/enables SSH and configures static IP `192.168.1.99`.
-For internet access, configure router port-forwarding TCP `22` to `192.168.1.99`.
+This installs/enables SSH and configures static IP `192.168.178.55`.
+For internet access, configure router port-forwarding TCP `22` to `192.168.178.55`.
 
 `-K` (`--ask-become-pass`) prompts for your sudo password used by `become: yes`.
 
