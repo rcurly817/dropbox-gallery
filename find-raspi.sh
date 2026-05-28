@@ -42,7 +42,7 @@ detect_subnet_prefix() {
 
 	if [[ -z "$ipv4" ]]; then
 		echo "Konnte kein lokales IPv4-Netz automatisch erkennen." >&2
-		echo "Bitte Subnetz explizit angeben, z. B.: ./find-raspi.sh 192.168.8" >&2
+		echo "Bitte Subnetz explizit angeben, z. B.: ./find-raspi.sh 192.168.178" >&2
 		exit 1
 	fi
 
@@ -113,7 +113,7 @@ main() {
 
 	if [[ "$found_any" -eq 0 ]]; then
 		echo "Kein Host mit offenem SSH-Port gefunden."
-		echo "Tipp: Subnetz explizit angeben, z. B. ./find-raspi.sh 192.168.8"
+		echo "Tipp: Subnetz explizit angeben, z. B. ./find-raspi.sh 192.168.178"
 		return 1
 	fi
 
