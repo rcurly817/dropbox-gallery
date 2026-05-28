@@ -36,8 +36,8 @@ Run the SSH setup playbook:
 
 * `ansible-playbook ansible/ssh.yml -i inventory-remote.ini -K`
 
-This installs/enables SSH and configures static IP `192.168.178.55`.
-For internet access, configure router port-forwarding TCP `22` to `192.168.178.55`.
+This installs/enables SSH and configures static IP `192.168.178.1`.
+For internet access, configure router port-forwarding TCP `22` to `192.168.178.1`.
 
 `-K` (`--ask-become-pass`) prompts for your sudo password used by `become: yes`.
 
