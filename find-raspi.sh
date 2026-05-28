@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-DEFAULT_SSH_USER="${SSH_USER:-pi}"
+DEFAULT_SSH_USER="${SSH_USER:-raspi}"
 DEFAULT_TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-1}"
 
 print_usage() {
@@ -16,7 +16,7 @@ Examples:
   ./find-raspi.sh 192.168.178 pi
 
 Environment variables:
-  SSH_USER         Default SSH user (default: pi)
+  SSH_USER         Default SSH user (default: raspi)
   TIMEOUT_SECONDS  Ping/port timeout in seconds (default: 1)
 
 The script scans x.x.x.1 - x.x.x.254, pings reachable hosts and checks
