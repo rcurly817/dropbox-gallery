@@ -1,6 +1,6 @@
 ---
 - name: Eigenständige Bildarchivierung auf dem Asustor NAS
-  hosts: localhost  # Wir führen es direkt lokal auf dem Pi aus
+  hosts: localhost
   gather_facts: false
 
   vars:
@@ -24,6 +24,7 @@
         done
       register: jpg_res
       changed_when: false
+      become: true # Erzwingt die Schreibrechte auf dem Netzlaufwerk
 
     - name: 3. HEIC-Bilder prüfen, konvertieren und direkt auf dem NAS speichern
       ansible.builtin.shell: >
@@ -35,3 +36,4 @@
         done
       register: heic_res
       changed_when: false
+      become: true # Erzwingt die Schreibrechte für die konvertierten Bilder
