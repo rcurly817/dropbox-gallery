@@ -1,29 +1,21 @@
 ---
 - name: Eigenständige Bildarchivierung auf dem Asustor NAS
-  hosts: raspi
-  become: false
+  hosts: localhost  # Wir führen es direkt lokal auf dem Pi aus
+  gather_facts: false
+
   vars:
-    pi_quell_ordner: "/opt/dropbox-download"
     nas_mount_punkt: "/mnt/asustor"
-    
-  # Hier stehen die Variablen 
-  vars:
-    nas_ip: "192.168.178.55"
-    nas_freigabe: "Bilderrahmen"
-    nas_mount_punkt: "/mnt/asustor"
-    nas_user: "Raspi"
-    nas_password: "Rahmen2504" # Bitte Ihr echtes Passwort eintragen
     pi_quell_ordner: "/opt/dropbox-download"
-    
+
   tasks:
-    - name: 1. Sicherstellen, dass das NAS-Laufwerk gemountet ist
-      ansible.posix.mount:
-        src: "//192.168.178.55/Bilderrahmen"
+    - name: 1. Prüfen, ob der NAS-Mountpunkt existiert und erreichbar ist
+      ansible.builtin.stat:
         path: "{{ nas_mount_punkt }}"
-        fstype: cifs
-        opts: 'username=Raspi,password=Rahmen2504,rw,file_mode=0777,dir_mode=0777'
-        state: mounted
-      become: true
+      register: mount_check
+
+    - name: Abbrechen, falls der NAS-Ordner fehlt
+      ansible.builtin.meta: end_play
+      when: not mount_check.stat.exists
 
     - name: 2. Bestehende JPGs auf das NAS kopieren (Duplikate überspringen)
       ansible.builtin.shell: >
@@ -37,7 +29,6 @@
       ansible.builtin.shell: >
         find "{{ pi_quell_ordner }}" -type f -iname "*.heic" | while read -r foto; do
           dateiname=$(basename "$foto" | sed 's/\.[^.]*$//');
-          # Konvertiert nur, wenn das JPG noch nicht im Archiv existiert
           if [ ! -f "{{ nas_mount_punkt }}/$dateiname.jpg" ]; then
             convert "$foto" "{{ nas_mount_punkt }}/$dateiname.jpg";
           fi
