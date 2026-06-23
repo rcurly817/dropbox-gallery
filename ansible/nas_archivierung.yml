@@ -5,7 +5,16 @@
   vars:
     pi_quell_ordner: "/opt/dropbox-download"
     nas_mount_punkt: "/mnt/asustor"
-
+    
+  # Hier stehen die Variablen 
+  vars:
+    nas_ip: "192.168.178.55"
+    nas_freigabe: "Bilderrahmen"
+    nas_mount_punkt: "/mnt/asustor"
+    nas_user: "Raspi"
+    nas_password: "Rahmen2504" # Bitte Ihr echtes Passwort eintragen
+    pi_quell_ordner: "/opt/dropbox-download"
+    
   tasks:
     - name: 1. Sicherstellen, dass das NAS-Laufwerk gemountet ist
       ansible.posix.mount:
