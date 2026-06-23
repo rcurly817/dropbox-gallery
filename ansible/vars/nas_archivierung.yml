@@ -1,0 +1,37 @@
+---
+- name: Eigenständige Bildarchivierung auf dem Asustor NAS
+  hosts: raspi
+  become: false
+  vars:
+    pi_quell_ordner: "/opt/dropbox-download"
+    nas_mount_punkt: "/mnt/asustor"
+
+  tasks:
+    - name: 1. Sicherstellen, dass das NAS-Laufwerk gemountet ist
+      ansible.posix.mount:
+        src: "//192.168.178.55/Bilderrahmen"
+        path: "{{ nas_mount_punkt }}"
+        fstype: cifs
+        opts: 'username=Raspi,password=Rahmen2504,rw,file_mode=0777,dir_mode=0777'
+        state: mounted
+      become: true
+
+    - name: 2. Bestehende JPGs auf das NAS kopieren (Duplikate überspringen)
+      ansible.builtin.shell: >
+        find "{{ pi_quell_ordner }}" -type f \( -iname "*.jpg" -o -iname "*.jpeg" \) | while read -r foto; do
+          cp -n "$foto" "{{ nas_mount_punkt }}/";
+        done
+      register: jpg_res
+      changed_when: false
+
+    - name: 3. HEIC-Bilder prüfen, konvertieren und direkt auf dem NAS speichern
+      ansible.builtin.shell: >
+        find "{{ pi_quell_ordner }}" -type f -iname "*.heic" | while read -r foto; do
+          dateiname=$(basename "$foto" | sed 's/\.[^.]*$//');
+          # Konvertiert nur, wenn das JPG noch nicht im Archiv existiert
+          if [ ! -f "{{ nas_mount_punkt }}/$dateiname.jpg" ]; then
+            convert "$foto" "{{ nas_mount_punkt }}/$dateiname.jpg";
+          fi
+        done
+      register: heic_res
+      changed_when: false
