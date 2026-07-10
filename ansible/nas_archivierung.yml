@@ -18,21 +18,29 @@
       when: not mount_check.stat.exists
 
     - name: 2. Bestehende JPGs auf das NAS kopieren (NUR Hauptordner, Duplikate überspringen)
-      ansible.builtin.shell: >
+      ansible.builtin.shell: |
         find "{{ pi_quell_ordner }}" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" \) | while read -r foto; do
           cp -n "$foto" "{{ nas_mount_punkt }}/";
         done
       register: jpg_res
       changed_when: false
 
-    - name: 3. HEIC-Bilder lokal konvertieren und auf das NAS verschieben (NUR Hauptordner)
-      ansible.builtin.shell: >
+    - name: 3. HEIC-Bilder direkt auf dem NAS als JPG speichern
+      ansible.builtin.shell: |
         find "{{ pi_quell_ordner }}" -maxdepth 1 -type f -iname "*.heic" | while read -r foto; do
           dateiname=$(basename "$foto" | sed 's/\.[^.]*$//');
-          if [ ! -f "{{ nas_mount_punkt }}/$dateiname.jpg" ]; then
-            # Lokal auf dem Pi konvertieren (schnell) und direkt auf das NAS schreiben
-            convert "$foto" "/tmp/$dateiname.jpg" && mv "/tmp/$dateiname.jpg" "{{ nas_mount_punkt }}/";
+          ziel_datei="{{ nas_mount_punkt }}/$dateiname.jpg"
+          
+          # Falls eine korrupte oder 0-Byte-Datei existiert, löschen
+          if [ -f "$ziel_datei" ] && [ ! -s "$ziel_datei" ]; then
+            rm -f "$ziel_datei";
+          fi
+          
+          # Direkt auf dem NAS konvertieren, falls das JPG fehlt
+          if [ ! -f "$ziel_datei" ]; then
+            convert "$foto" "$ziel_datei";
           fi
         done
+      become: true
       register: heic_res
       changed_when: false
