@@ -131,4 +131,41 @@ Current shared paths:
 
 If you change folders, update only `ansible/vars/shared_paths.yml`.
 
+## NAS-Archivierung (Backup & Konvertierung)
+
+Das Playbook `ansible/nas_archivierung.yml` sichert Bilder inkrementell vom Raspberry Pi auf das Asustor-NAS, konvertiert `.heic`-Dateien in `.jpg` und schickt Status-Mails via IONOS.
+
+### Automatische Ausführung (Cronjob)
+
+Das Skript läuft nachts um 04:00 Uhr und zusätzlich 30 Sekunden nach jedem Systemstart (Reboot), um verpasste Backups nachzuholen.
+
+Einträge in `crontab -e`:
+```bash
+# Jede Nacht um 4 Uhr ausführen
+0 4 * * * ansible-playbook /home/raspi/dropbox-gallery/ansible/nas_archivierung.yml --vault-password-file /home/raspi/.ansible_vault_pass > /dev/null 2>&1
+
+# Direkt nach jedem Neustart des Raspberry Pi ausführen
+@reboot sleep 30 && ansible-playbook /home/raspi/dropbox-gallery/ansible/nas_archivierung.yml --vault-password-file /home/raspi/.ansible_vault_pass > /dev/null 2>&1
+```
+
+### Verschlüsselte Passwörter (Ansible Vault)
+
+Das E-Mail-Passwort liegt verschlüsselt in `ansible/geheimnisse.yml`. 
+
+- **Datei editieren/ansehen:**
+  ```bash
+  EDITOR=nano ansible-vault edit ansible/geheimnisse.yml
+  ```
+- **Manuell testen mit Passwort-Prompt:**
+  ```bash
+  ansible-playbook ansible/nas_archivierung.yml --ask-vault-pass
+  ```
+- **Manuell testen mit Passwort-Datei (wie Cronjob):**
+  ```bash
+  ansible-playbook ansible/nas_archivierung.yml --vault-password-file /home/raspi/.ansible_vault_pass
+  ```
+
+### Schutz vor SD-Karten-Überlastung
+
+Das Playbook prüft vor dem Kopieren über die System-Mounts (`ansible_facts.mounts`), ob das NAS unter `/mnt/asustor` wirklich aktiv eingehängt ist. Ist das NAS offline (z. B. nach einem Stromausfall), bricht das Skript ab und sendet eine Warn-E-Mail, anstatt die lokale SD-Karte vollzuschreiben.
 
