@@ -1,46 +1,115 @@
 ---
-- name: Eigenständige Bildarchivierung auf dem Asustor NAS
+- name: Automatisierte Bilder-Archivierung und HEIC-Konvertierung
   hosts: localhost
-  gather_facts: false
+  gather_facts: true  # Wichtig für Cron: Lädt die Systemzeit für die E-Mails
+  
+  # Lädt die verschlüsselte Passwortdatei absolut sicher
+  vars_files:
+    - "{{ playbook_dir }}/geheimnisse.yml"
 
   vars:
-    nas_mount_punkt: "/mnt/asustor"
-    pi_quell_ordner: "/opt/dropbox-download"
+    source_dir: "/opt/dropbox-download"
+    mount_point: "/mnt/asustor"
+    email_recipient: "info@reimovinc.de"
+    # IONOS SMTP-Server-Konfiguration
+    smtp_host: "smtp.ionos.de"
+    smtp_port: 587
 
   tasks:
-    - name: 1. Prüfen, ob der NAS-Mountpunkt existiert und erreichbar ist
-      ansible.builtin.stat:
-        path: "{{ nas_mount_punkt }}"
+    # -------------------------------------------------------------------------
+    # SCHRITT 1: Mount-Erkennung & Absicherung
+    # -------------------------------------------------------------------------
+    - name: Systemzeit einlesen
+      ansible.builtin.setup:
+        gather_subset:
+          - date_time
+
+    - name: Weckruf an das NAS senden und aktiven Mount prüfen
+      ansible.builtin.command: "mountpoint -q {{ mount_point }}"
       register: mount_check
-
-    - name: Abbrechen, falls der NAS-Ordner fehlt
-      ansible.builtin.meta: end_play
-      when: not mount_check.stat.exists
-
-    - name: 2. Bestehende JPGs auf das NAS kopieren (NUR Hauptordner, Duplikate überspringen)
-      ansible.builtin.shell: |
-        find "{{ pi_quell_ordner }}" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" \) | while read -r foto; do
-          cp -n "$foto" "{{ nas_mount_punkt }}/";
-        done
-      register: jpg_res
+      failed_when: false
       changed_when: false
 
-    - name: 3. HEIC-Bilder direkt auf dem NAS als JPG speichern
+    - name: Mount-Status als Variable festlegen
+      ansible.builtin.set_fact:
+        nas_is_mounted: "{{ mount_check.rc == 0 }}"
+
+    - name: Warn-E-Mail senden, falls das NAS offline ist
+      community.general.mail:
+        host: "{{ smtp_host }}"
+        port: "{{ smtp_port }}"
+        secure: starttls
+        username: "info@reimovinc.de"
+        password: "{{ vault_email_password }}"
+        sender: "info@reimovinc.de"
+        to: "{{ email_recipient }}"
+        subject: "[WARNUNG] NAS-Archivierung fehlgeschlagen - NAS offline"
+        body: "Das Backup am {{ ansible_date_time.date }} um {{ ansible_date_time.time }} wurde abgebrochen, da {{ mount_point }} nicht erreichbar ist."
+      when: not nas_is_mounted
+
+    - name: Playbook strikt abbrechen, wenn NAS-Mount fehlt
+      ansible.builtin.fail:
+        msg: "Abbruch! {{ mount_point }} ist kein aktiver Mountpoint. Kopieren abgebrochen."
+      when: not nas_is_mounted
+
+    # -------------------------------------------------------------------------
+    # SCHRITT 2: Inkrementelles Kopieren (cp -v -n zeigt übertragene Dateien)
+    # -------------------------------------------------------------------------
+    - name: Neue JPG und JPEG Dateien kopieren
       ansible.builtin.shell: |
-        find "{{ pi_quell_ordner }}" -maxdepth 1 -type f -iname "*.heic" | while read -r foto; do
-          dateiname=$(basename "$foto" | sed 's/\.[^.]*$//');
-          ziel_datei="{{ nas_mount_punkt }}/$dateiname.jpg"
+        find "{{ source_dir }}" -type f \( -iname "*.jpg" -o -iname "*.jpeg" \) -exec cp -v -n {} "{{ mount_point }}/" \;
+      register: copy_result
+      changed_when: false
+
+    # -------------------------------------------------------------------------
+    # SCHRITT 3: HEIC-Konvertierung & Bereinigung
+    # -------------------------------------------------------------------------
+    - name: Korrupte 0-Byte-Dateien auf dem NAS vorab bereinigen
+      ansible.builtin.shell: |
+        find "{{ mount_point }}" -type f -name "*.jpg" -size 0c -delete
+      register: cleanup_result
+      changed_when: false
+
+    - name: HEIC-Bilder suchen und konvertieren
+      ansible.builtin.shell: |
+        find "{{ source_dir }}" -type f -iname "*.heic" | while read -r heic_file; do
+          pure_filename=$(basename "$heic_file")
+          filename_without_ext="${pure_filename%.*}"
           
-          # Falls eine korrupte oder 0-Byte-Datei existiert, löschen
-          if [ -f "$ziel_datei" ] && [ ! -s "$ziel_datei" ]; then
-            rm -f "$ziel_datei";
-          fi
-          
-          # Direkt auf dem NAS konvertieren, falls das JPG fehlt
-          if [ ! -f "$ziel_datei" ]; then
-            convert "$foto" "$ziel_datei";
+          if [ ! -f "{{ mount_point }}/$filename_without_ext.jpg" ]; then
+            convert "$heic_file" "{{ mount_point }}/$filename_without_ext.jpg"
+            echo "Konvertiert: $pure_filename -> $filename_without_ext.jpg"
           fi
         done
-      become: true
-      register: heic_res
+      register: convert_result
       changed_when: false
+
+    # -------------------------------------------------------------------------
+    # SCHRITT 4: Erfolgs-E-Mail mit detaillierter Dateiliste
+    # -------------------------------------------------------------------------
+    - name: Erfolgs-E-Mail senden
+      community.general.mail:
+        host: "{{ smtp_host }}"
+        port: "{{ smtp_port }}"
+        secure: starttls
+        username: "info@reimovinc.de"
+        password: "{{ vault_email_password }}"
+        sender: "info@reimovinc.de"
+        to: "{{ email_recipient }}"
+        subject: "[ERFOLG] Bilder-Archivierung abgeschlossen"
+        body: |
+          Die nächtliche Archivierung war erfolgreich.
+          Datum: {{ ansible_date_time.date }}
+          Uhrzeit: {{ ansible_date_time.time }}
+
+          ==================================================
+          KOPIERTE JPG/JPEG DATEIEN:
+          ==================================================
+          {{ copy_result.stdout if copy_result.stdout != '' else 'Keine neuen JPG/JPEG Dateien kopiert.' }}
+
+          ==================================================
+          KONVERTIERTE HEIC DATEIEN:
+          ==================================================
+          {{ convert_result.stdout if convert_result.stdout != '' else 'Keine neuen HEIC Dateien konvertiert.' }}
+      when: nas_is_mounted
+
