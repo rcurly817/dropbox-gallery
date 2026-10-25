@@ -1,4 +1,3 @@
----
 - name: Automatisierte Bilder-Archivierung und HEIC-Konvertierung
   hosts: localhost
   gather_facts: true  # Wichtig für Cron: Lädt die Systemzeit für die E-Mails
@@ -77,15 +76,17 @@
           filename_without_ext="${pure_filename%.*}"
           
           if [ ! -f "{{ mount_point }}/$filename_without_ext.jpg" ]; then
-            convert "$heic_file" "{{ mount_point }}/$filename_without_ext.jpg"
+            # Schont den Pi 3B: Nutzt nur 1 CPU-Kern, limitiert RAM und gibt niedrigste Priorität
+            nice -n 19 convert -limit thread 1 -limit memory 256MiB -limit map 512MiB "$heic_file" "{{ mount_point }}/$filename_without_ext.jpg"
             echo "Konvertiert: $pure_filename -> $filename_without_ext.jpg"
+            sleep 2
           fi
         done
       register: convert_result
       changed_when: false
 
     # -------------------------------------------------------------------------
-    # SCHRITT 4: Erfolgs-E-Mail mit detaillierter Dateiliste
+    # SCHRITT 4: Erfolgs-E-Mail (NUR wenn neue Bilder vorhanden sind)
     # -------------------------------------------------------------------------
     - name: Erfolgs-E-Mail senden
       community.general.mail:
@@ -96,9 +97,9 @@
         password: "{{ vault_email_password }}"
         sender: "info@reimovinc.de"
         to: "{{ email_recipient }}"
-        subject: "[ERFOLG] Bilder-Archivierung abgeschlossen"
+        subject: "[INFO] Neue Bilder-Archivierung abgeschlossen"
         body: |
-          Die nächtliche Archivierung war erfolgreich.
+          Es wurden neue Bilder archiviert bzw. konvertiert.
           Datum: {{ ansible_date_time.date }}
           Uhrzeit: {{ ansible_date_time.time }}
 
@@ -111,5 +112,7 @@
           KONVERTIERTE HEIC DATEIEN:
           ==================================================
           {{ convert_result.stdout if convert_result.stdout != '' else 'Keine neuen HEIC Dateien konvertiert.' }}
-      when: nas_is_mounted
-
+      # Die E-Mail wird NUR gesendet, wenn das NAS erreichbar ist UND entweder neue JPGs da sind ODER HEICs konvertiert wurden
+      when: 
+        - nas_is_mounted
+        - (copy_result.stdout | trim != '') or (convert_result.stdout | trim != '')
