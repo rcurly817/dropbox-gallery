@@ -101,6 +101,8 @@
             --shuffle \
             --loop-playlist=inf \
             --no-terminal \
+            --video-unscaled=yes \
+            --keepaspect=yes
             --profile={{ dropbox_mpv_profile }} \
             --hwdec={{ dropbox_mpv_hwdec }} \
             --framedrop=vo \
